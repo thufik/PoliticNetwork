@@ -43,13 +43,12 @@ public protocol ApiProtocol {
     func request<T: Codable>(url: String,
                              method: RequestType,
                              with parameters: [String: Any]?,
-                             token: String,
                              completion: @escaping (ResultOperations<T>) -> Void)
 }
 
 public class NetworkManager: ApiProtocol  {
 
-    static let shared = NetworkManager(baseUrl: .init(string: "https://google.com.br")!)
+    public static let shared = NetworkManager(baseUrl: .init(string: "https://google.com.br")!)
     
     let baseUrl: URL
     
@@ -57,7 +56,7 @@ public class NetworkManager: ApiProtocol  {
         self.baseUrl = baseUrl
     }
     
-    public func request<T>(url: String, method: RequestType, with parameters: [String : Any]?, token: String, completion: @escaping (ResultOperations<T>) -> Void) where T : Decodable, T : Encodable {
+    public func request<T>(url: String, method: RequestType, with parameters: [String : Any]?, completion: @escaping (ResultOperations<T>) -> Void) where T : Decodable, T : Encodable {
         let config: URLSessionConfiguration = URLSessionConfiguration.default
         let session: URLSession = URLSession(configuration: config)
 
