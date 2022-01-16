@@ -48,7 +48,7 @@ public protocol ApiProtocol {
 
 public class NetworkManager: ApiProtocol  {
 
-    public static let shared = NetworkManager(baseUrl: .init(string: "https://google.com.br")!)
+    public static let shared = NetworkManager(baseUrl: .init(string: "https://dadosabertos.camara.leg.br/api/v2/deputados")!)
     
     let baseUrl: URL
     
