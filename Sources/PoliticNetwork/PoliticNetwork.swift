@@ -92,50 +92,30 @@ public class NetworkManager: ApiProtocol  {
             }
 
             do {
-                let formatter = DateFormatter()
-                
-                formatter.calendar = Calendar(identifier: .iso8601)
-                formatter.locale = Locale(identifier: "en_US_POSIX")
-                formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                formatter.dateFormat = "YYYY-MM-DD'T'HH:mm:ss.SSS"
-                
-                
                 let decoder = JSONDecoder()
                 
-                decoder.dateDecodingStrategy = .formatted(formatter)
+                let decodableData: T = try decoder.decode(T.self, from: data)
                 
-                let decodableData: ResponseModel<T> = try decoder.decode(ResponseModel<T>.self, from: data)
-                
-                if decodableData.message == "Token expired" || decodableData.message == "Invalid token" {
-                    completion(.error(.invalidToken))
-                }
-                
-                switch (decodableData.isSuccess, statusCode) {
-                case (false, 400):
+                switch (statusCode) {
+                case (400):
                     completion(.error(.badRequest))
                     return
-                case (false, 403):
-                    completion(.error(.invalidInfo(decodableData.message)))
+                case (403):
+                    completion(.error(.badRequest))
                     return
-                case (false, 404):
-                    completion(.error(.notFound(decodableData.message)))
+                case (404):
+                    completion(.error(.badRequest))
                     return
-                case (false, 409):
-                    completion(.error(.conflict(decodableData.message)))
+                case (409):
+                    completion(.error(.badRequest))
                     return
-                case (false, 500):
+                case (500):
                     completion(.error(.internalServerError))
                     return
                 default: break
                 }
                 
-                if decodableData.isSuccess, let result = decodableData.result {
-                    completion(.success(result))
-                } else if decodableData.isSuccess{
-                    completion(.error(.empty))
-                } else {
-                    completion(.error(.custom(NSLocalizedString("Something went wrong, check your connection, and try again", comment: ""))))
-                }
+                completion(.success(decodableData))
                 
             } catch let ex {
                 debugPrint(ex)
