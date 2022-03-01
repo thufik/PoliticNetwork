@@ -1,131 +1,11 @@
+//
+//  RequestOperations.swift
+//  BTNetwork
+//
+//  Created by Rodrigo Baroni on 16/08/21.
+//
+
 import Foundation
-
-
-public enum RequestType: String {
-    case GET
-    case POST
-    case PUT
-    case PATCH
-    case DELETE
-}
-
-public enum ResultError {
-    case undecodable
-    case invalidToken
-    case internalServerError
-    case badRequest
-    case invalidInfo(String)
-    case unauthorized
-    case conflict(String)
-    case notFound(String)
-    case custom(String)
-    case empty
-}
-
-public enum ResultOperations<T: Codable> {
-    case success(T)
-    case error(ResultError)
-}
-
-public class ResponseModel<T: Codable>: Codable {
-    public var result: T?
-    public var isSuccess: Bool
-    public var message: String
-    
-    enum CodingKeys: String, CodingKey {
-        case result = "Result"
-        case isSuccess = "IsSuccess"
-        case message = "Message"
-    }
-}
-
-public protocol ApiProtocol {
-    func request<T: Codable>(url: String,
-                             method: RequestType,
-                             with parameters: [String: Any]?,
-                             completion: @escaping (ResultOperations<T>) -> Void)
-}
-
-public class NetworkManager: ApiProtocol  {
-
-    public static let shared = NetworkManager(baseUrl: .init(string: "https://dadosabertos.camara.leg.br/api/v2/deputados")!)
-    
-    let baseUrl: URL
-    
-    private init(baseUrl: URL) {
-        self.baseUrl = baseUrl
-    }
-    
-    public func request<T>(url: String, method: RequestType, with parameters: [String : Any]?, completion: @escaping (ResultOperations<T>) -> Void) where T : Decodable, T : Encodable {
-        let config: URLSessionConfiguration = URLSessionConfiguration.default
-        let session: URLSession = URLSession(configuration: config)
-
-        var urlRequest: URLRequest?
-        
-        switch method {
-        case .GET:
-            urlRequest = RequestGet.build(url, with: parameters, or: nil)
-        case .POST:
-            urlRequest = RequestPost.create(url, with: parameters)
-        case .PUT:
-            urlRequest = RequestPut.create(url, with: parameters, queryParams: nil)
-        case .DELETE: break
-        case .PATCH:
-            urlRequest = RequestPatch.build(url, with: parameters, or: nil)
-        }
-
-        guard let myRequest = urlRequest else {
-            completion(.error(.badRequest))
-            return
-        }
-
-        let task = session.dataTask(with: myRequest, completionHandler: { (result, urlResponse, error) in
-            var statusCode: Int = 0
-            
-            if let response = urlResponse as? HTTPURLResponse {
-               statusCode = response.statusCode
-            }
-
-            guard let data = result else {
-                completion(.error(.custom(NSLocalizedString("Something went wrong, check your connection, and try again", comment: ""))))
-                return
-            }
-
-            do {
-                let decoder = JSONDecoder()
-                
-                let decodableData: T = try decoder.decode(T.self, from: data)
-                
-                switch (statusCode) {
-                case (400):
-                    completion(.error(.badRequest))
-                    return
-                case (403):
-                    completion(.error(.badRequest))
-                    return
-                case (404):
-                    completion(.error(.badRequest))
-                    return
-                case (409):
-                    completion(.error(.badRequest))
-                    return
-                case (500):
-                    completion(.error(.internalServerError))
-                    return
-                default: break
-                }
-                
-                completion(.success(decodableData))
-                
-            } catch let ex {
-                debugPrint(ex)
-                completion(.error(.undecodable))
-            }
-        })
-        task.resume()
-    }
-    
-}
 
 struct RequestGet {
     /// Identifier to use query or route format on the request
@@ -140,7 +20,7 @@ struct RequestGet {
     ///          So, the route will be updated according the sequence of params sent
     ///   - queryParams: *Optional - all parameters used on the query string on the API endpoint
     /// - Returns: URLRequest object
-    static func build(_ url: String, with queryParams: [String: Any]?, or routeParams: [String]?) -> URLRequest? {
+    static func build(_ url: String, with queryParams: [String: Any]?, or routeParams: [String]?, headers: [String: String]) -> URLRequest? {
         var fullUrl: String = url
         if let query = queryParams, isQuery {
             fullUrl += buildQueryString(with: query)
@@ -157,6 +37,7 @@ struct RequestGet {
         var request: URLRequest = URLRequest(url: urlRequest)
         
         request.httpMethod = "GET"
+        request.allHTTPHeaderFields = headers
         
         return request
     }
@@ -180,7 +61,7 @@ struct RequestPost {
     ///   - bodyParams: *Optional - all parameters used on the body on the API endpoint
     /// - Returns: URLRequest object
     static func create(_ url: String,
-                       with bodyParams: [String: Any?]?) -> URLRequest? {
+                       with bodyParams: [String: Any?]?, headers: [String: String]) -> URLRequest? {
 
         guard let urlRequest: URL = URL(string: url) else { return nil }
         var request: URLRequest = URLRequest(url: urlRequest)
@@ -196,6 +77,8 @@ struct RequestPost {
 
         request.httpBody = postData as Data
 
+        request.allHTTPHeaderFields = headers
+
         return request
     }
 }
@@ -208,7 +91,7 @@ struct RequestPut {
     ///   - bodyParams: *Optional - all parameters used on the body on the API endpoint
     /// - Returns: URLRequest object
     static func create(_ url: String,
-                       with bodyParams: [String: Any?]?, queryParams: [String: Any]?) -> URLRequest? {
+                       with bodyParams: [String: Any?]?, queryParams: [String: Any]?, headers: [String: String]) -> URLRequest? {
 
         var fullUrl: String = url
         
@@ -229,6 +112,8 @@ struct RequestPut {
         guard let postData = try? JSONSerialization.data(withJSONObject: onlyValues, options: []) else { return nil }
 
         request.httpBody = postData as Data
+
+        request.allHTTPHeaderFields = headers
 
         return request
     }
@@ -257,7 +142,7 @@ struct RequestPatch {
     ///          So, the route will be updated according the sequence of params sent
     ///   - queryParams: *Optional - all parameters used on the query string on the API endpoint
     /// - Returns: URLRequest object
-    static func build(_ url: String, with queryParams: [String: Any]?, or routeParams: [String]?) -> URLRequest? {
+    static func build(_ url: String, with queryParams: [String: Any]?, or routeParams: [String]?, headers: [String: String]) -> URLRequest? {
         var fullUrl: String = url
         if let query = queryParams, isQuery {
             fullUrl += buildQueryString(with: query)
@@ -274,6 +159,7 @@ struct RequestPatch {
         var request: URLRequest = URLRequest(url: urlRequest)
         
         request.httpMethod = "PATCH"
+        request.allHTTPHeaderFields = headers
         
         return request
     }
